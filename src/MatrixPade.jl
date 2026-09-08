@@ -2,18 +2,14 @@ module MatrixPade
 
 using LinearAlgebra
 
-export matrix_pade_eval
+export matdot, mpta, mpta_coeffs, PadeApproximant
+export fphps, defect, matrix_pade, matrix_pade_coeffs, matrix_pade_right,
+    matrix_pade_right_coeffs, matrix_pade_left, matrix_pade_left_coeffs,
+    MatrixPadeForm
 
-"""
-    matrix_pade_eval(coeffs, x)
-
-Placeholder stub. Will evaluate the matrix-Padé approximation defined by
-`coeffs` (a vector of matrix-valued coefficients) at `x`. Currently just
-returns the leading coefficient unchanged, pending the real implementation.
-"""
-function matrix_pade_eval(coeffs::AbstractVector{<:AbstractMatrix}, x)
-    isempty(coeffs) && throw(ArgumentError("coeffs must be non-empty"))
-    return first(coeffs)
-end
+include("scalar_product.jl")
+include("mpta.jl")
+include("fphps.jl")
+include("matrix_pade.jl")
 
 end # module MatrixPade
