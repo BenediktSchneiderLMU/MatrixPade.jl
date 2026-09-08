@@ -43,6 +43,13 @@ function mpta_coeffs(coeffs::AbstractVector{<:AbstractMatrix}, m::Integer, n::In
 
     qcoeffs = [S[n-j+1] for j in 0:n]
 
+    all(iszero, qcoeffs) &&
+        throw(ArgumentError("the Padé-type denominator is identically zero: the Hankel " *
+                            "matrix of matdot products is singular for (m, n) = ($m, $n). " *
+                            "Gu's scalar product is bilinear and does not conjugate, so it " *
+                            "can be isotropic on a complex series; try a different (m, n), " *
+                            "or use `matrix_pade` for a genuine matrix denominator."))
+
     Pcoeffs = Vector{typeof(c[1])}(undef, m + 1)
     for j in 0:m
         acc = zero(c[1])
