@@ -6,6 +6,18 @@
 _coeff(poly::AbstractVector{T}, j::Integer) where {T} =
     j + 1 <= length(poly) ? poly[j+1] : zero(T)
 
+_exactify(coeffs::AbstractVector{<:AbstractMatrix{<:Integer}}) =
+    [Rational{BigInt}.(c) for c in coeffs]
+_exactify(coeffs::AbstractVector{<:AbstractMatrix}) = coeffs
+
+function _horner_matrix(coefs::AbstractVector{<:AbstractMatrix}, z)
+    acc = coefs[end]
+    for i in length(coefs)-1:-1:1
+        acc = acc * z + coefs[i]
+    end
+    return acc
+end
+
 # F^T(z) = (1, z, ..., z^{p-1}) . [I, -A(z^p)], i.e. f_j(z) = z^{j-1} for
 # j <= p and f_{p+j}(z) = -sum_i z^{i-1} A_{ij}(z^p) for j = 1, ..., q.
 function _build_F_right(c, M, N, p, q, sigma, ::Type{T}) where {T}
