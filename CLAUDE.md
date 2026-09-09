@@ -10,11 +10,12 @@ Run from the package root (where `Project.toml` lives).
 # Full test suite (matches CI)
 julia --project=. -e 'using Pkg; Pkg.test()'
 
-# Faster local loop (same tests, no separate test-env resolve)
+# Faster local loop, with the caveat that `Symbolics` is a test-only
+# dependency and so `test_symbolic.jl` errors under it
 julia --project=. test/runtests.jl
 
 # Run a single test file
-julia --project=. -e 'using Test, LinearAlgebra, MatrixPade; include("test/test_example_4_4.jl")'
+julia --project=. -e 'using Test, LinearAlgebra, MatrixPade; include("test/test_matrix_pade_right.jl")'
 ```
 
 There is no build/lint step — this is a pure-Julia package with no external
@@ -29,23 +30,7 @@ fix, one doc update) — not necessarily after every single file edit.
 
 ## Architecture
 
-Two independent algorithms live here, from two different papers.
-
-**(1) Matrix Padé-type approximants (MPTA)**, as defined by Gu (2004),
-*"Matrix Padé-type approximant and directional matrix Padé approximant in
-the inner product space"*, J. Comput. Appl. Math. 164–165, 365–385
-(Theorem 4.3, which subsumes Theorem 4.2 as the special case `m = n-1`).
-Only the case with a **scalar denominator `q(z)`** and **matrix-valued
-numerator `P(z)`** is implemented; the remainder `R(z)`, the directional
-MPTA (paper §5), the system-reduction application (§6), and the
-arbitrary-generating-polynomial "type" approximant (Definition 2.4) are all
-out of scope.
-
-Given a matrix power series `f(z) = c0 + c1 z + c2 z^2 + ...`, the goal is
-`q(z) f(z) - P(z) = O(z^{m+1})` for target degrees `m` (numerator) and `n`
-(denominator).
-
-**(2) Left- and right-hand square and rectangular matrix Padé forms**, with
+**Left- and right-hand square and rectangular matrix Padé forms**, with
 a genuine **matrix denominator `Q(z)`**, following Beckermann & Labahn
 (1994), *"A uniform approach for the fast computation of matrix-type Padé
 approximants"*, SIAM J. Matrix Anal. Appl. 15, 804–823 — their Examples 2.1
@@ -63,32 +48,6 @@ For a `p` by `q` series `A(z) = A_0 + A_1 z + ...` and a type `(M, N)`:
 
 ### Source layout
 
-- `src/scalar_product.jl` — `matdot(A, B) = sum(A .* B)`. This is the
-  paper's bilinear scalar product: it does **not** conjugate complex
-  entries, unlike the usual Hermitian inner product. Everything downstream
-  depends on this exact (non-conjugating) definition.
-- `src/mpta.jl` — the whole algorithm:
-  - `mpta_coeffs(coeffs, m, n)` builds the n×n Hankel-type matrix `H` and
-    length-n vector `ξ` from `matdot` products of `coeffs[m-n+2 : m+n+1]`
-    (0-based `c_{m-n+1..m+n}`), then computes signed cofactors `S_0..S_n`
-    from the n×(n+1) bordered matrix `[H | ξ]` via `LinearAlgebra.det` on
-    each n×n minor. `q(z)`'s coefficients are just `S` reversed
-    (`qcoeffs[j] = S[n-j]`). Once `q` is known, **`P` is exactly the
-    degree-`m` truncation of the polynomial product `q(z) * f(z)`**
-    (`Pcoeffs[j] = sum_{k=0}^{min(j,n)} qcoeffs[k] * coeffs[j-k]`) — this
-    is algebraically equivalent to the paper's determinant formula for
-    `P_mn` but far simpler to implement/verify, and is the key
-    simplification this codebase relies on.
-  - `_exactify(coeffs)` promotes `Integer`-element input matrices to
-    `Rational{BigInt}` automatically so exact input stays exact
-    end-to-end; non-integer input (`Float64`, `Complex`, `Rational`, ...)
-    passes through unchanged.
-  - `PadeApproximant{Tq,TP}` is a plain `(q::Vector, P::Vector)` container
-    with `(pa::PadeApproximant)(z)` evaluating both polynomials by Horner's
-    method and returning `P(z) ./ q(z)` (elementwise, valid since `q(z)`
-    is scalar).
-  - `mpta(coeffs, m, n)` wraps `mpta_coeffs` into a `PadeApproximant`;
-    `mpta(coeffs, m, n, z)` evaluates it immediately.
 - `src/fphps.jl` — the scalar solver, `fphps(F, sigma, n, s) -> (P, d,
   pivots)`. Implements the FPHPS recurrence verbatim: start from the unit
   rows `P_l = e_l` with `d_l = n_l`; at each order pick the pivot `pi` of
@@ -113,6 +72,11 @@ For a `p` by `q` series `A(z) = A_0 + A_1 z + ...` and a type `(M, N)`:
     one elementary row operation.) Assert defects, orders and the derived
     `P`/`Q` instead.
 - `src/matrix_pade.jl` — the two matrix Padé forms.
+  - `_exactify(coeffs)` promotes `Integer`-element input matrices to
+    `Rational{BigInt}` automatically so exact input stays exact
+    end-to-end; non-integer input (`Float64`, `Complex`, `Rational`, ...)
+    passes through unchanged. `_horner_matrix` evaluates a matrix-coefficient
+    polynomial. Both live here because this is their only consumer.
   - Parameter map, Table 1 rows 2.1/2.2, verified against §5:
 
     | | right | left |
@@ -140,7 +104,7 @@ For a `p` by `q` series `A(z) = A_0 + A_1 z + ...` and a type `(M, N)`:
     solution space says so.
   - `MatrixPadeForm{T}` holds `P`, `Q` (coefficient vectors, lengths `M+1`
     and `N+1`) and `side`. `(f)(z)` evaluates `P(z) Q(z)^-1` on the right and
-    `Q(z)^-1 P(z)` on the left, reusing `_horner_matrix` from `mpta.jl`.
+    `Q(z)^-1 P(z)` on the left via `_horner_matrix`.
   - `_pseudoinverse` is written by normal equations (`inv` when square,
     `(Q'Q)\Q'` when tall, `Q'/(Q Q')` when wide) rather than
     `LinearAlgebra.pinv`, which is SVD-based and would force floats and
@@ -149,21 +113,17 @@ For a `p` by `q` series `A(z) = A_0 + A_1 z + ...` and a type `(M, N)`:
   - A singular `Q(z)` raises an `ArgumentError`. This is a real case, not a
     bug: the §5 right-hand form has `Q(z)` singular for every `z` and the
     paper states no such fraction exists.
-- `src/MatrixPade.jl` — module entry point; `include`s the four files above.
-  `fphps.jl`/`matrix_pade.jl` must come after `mpta.jl`, which owns the
-  shared `_exactify` and `_horner_matrix` helpers.
+- `src/MatrixPade.jl` — module entry point; `include`s the two files above.
 
 ### Indexing convention
 
 Series coefficients are passed as a plain `Vector` of matrices in
 **mathematical order starting at `c0`**, so `coeffs[i]` (1-based Julia
 index) holds `c_{i-1}`. This 0-based/1-based offset shows up throughout
-`mpta.jl` (e.g. `c[p+r+1]` for the 0-based index `p+r`) — keep it in mind
+`matrix_pade.jl` (e.g. `c[k+1]` for the 0-based index `k`) — keep it in mind
 when touching the indexing.
 
 ### Validity constraints (throw `ArgumentError`)
-
-`mpta_coeffs`: `n >= 1`; `m >= n - 1`; `length(coeffs) >= m + n + 1`.
 
 `fphps`: `m >= 2`; `s >= 1`; `sigma >= 0`; `length(n) == m`; every `F[l]`
 supplies at least `sigma` coefficients.
@@ -176,19 +136,13 @@ supplies at least `sigma` coefficients.
 
 `test/runtests.jl` just `include`s one file per concern:
 
-- `test_scalar_product.jl` — `matdot` bilinearity/symmetry/no-conjugation.
-- `test_example_4_4.jl` — the paper's own worked example (`f(z) = e^{Az}`,
-  seeking the `(3/2)` MPTA), used as the ground-truth correctness check:
-  exact expected `qcoeffs`/`Pcoeffs` values plus an independent
-  convolution-based residual check.
-- `test_pade_approximant.jl` — `PadeApproximant`/`mpta`/`mpta(...,z)`
-  evaluation, checked against an independently written Horner evaluation.
-- `test_exact_and_edge_cases.jl` — integer→`Rational` promotion,
-  `Float64` pass-through, and the `ArgumentError` validity constraints.
 - `matrix_pade_testutils.jl` — **not** a test file; shared independent
   polynomial helpers (`_tdeg`, `_ttrim`, `_tdefect`, `_tresidual`,
-  `_torder_coeff`) `include`d by the three files below, written without
+  `_torder_coeff`) `include`d by the files below, written without
   package internals so the checks stay independent of the code under test.
+- `exp_series_testutils.jl` — **not** a test file; builds the
+  `exp(i A x + i B x^2)` series (`_texp_iab_series`, `_treadme_A`,
+  `_treadme_B`) shared by the README and symbolic tests.
 - `test_fphps.jl` — Beckermann & Labahn Example 4.4 (p. 813): the pivot
   sequence, the printed sigma=10 basis, the defects, and the printed
   s-residuals. Ground truth for the scalar solver alone.
@@ -203,8 +157,17 @@ supplies at least `sigma` coefficients.
 - `test_matrix_pade_types.jl` — exactness, shapes, the square vs.
   rectangular (pseudoinverse) paths on wide/tall series, wrapper agreement,
   and validation.
+- `test_readme_example.jl` — the twelfth-order `exp(i A x + i B x^2)`
+  example from the README: the series itself against its closed form, the
+  order condition, exact rational evaluation, `Rational{Int}` overflow, and
+  the observed `O(x^{M+N+1})` decay.
+- `test_symbolic.jl` — Symbolics.jl evaluation points, checked by
+  substituting a rational point back in rather than asserting a `simplify`
+  normal form. Needs the test-only `Symbolics` dependency. Symbolic *series
+  coefficients* are not supported: FPHPS pivots on whether a residual
+  coefficient vanishes, which is not decidable for a `Num`.
 
-When extending an algorithm (e.g. adding directional MPTA), prefer encoding
-another worked example from the source paper as a test the way
-`test_example_4_4.jl` and `test_matrix_pade_right.jl` do, rather than only
-asserting internal consistency.
+When extending the algorithm, prefer encoding another worked example from
+the source paper as a test the way `test_fphps.jl` and
+`test_matrix_pade_right.jl` do, rather than only asserting internal
+consistency.
