@@ -6,3 +6,4 @@ Manifest.toml
 *.jl.*.cov
 *.jl.mem
 /deps/deps.jl
+CLAUDE.md
