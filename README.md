@@ -1,7 +1,7 @@
 # MatrixPade.jl
 
 [![CI](https://github.com/BenediktSchneiderLMU/MatrixPade.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/BenediktSchneiderLMU/MatrixPade.jl/actions/workflows/CI.yml)
-[![codecov](https://codecov.io/gh/BenediktSchneiderLMU/MatrixPade.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/BenediktSchneiderLMU/MatrixPade.jl)
+[![codecov](https://codecov.io/github/BenediktSchneiderLMU/MatrixPade.jl/graph/badge.svg?token=6EW1MXBFOT)](https://codecov.io/github/BenediktSchneiderLMU/MatrixPade.jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Overview
