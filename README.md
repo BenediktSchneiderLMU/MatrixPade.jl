@@ -47,9 +47,35 @@ coeffs = [
     [1 0; 0 1], [0 0; 0 0], [1 0; 0 1],
     [0 0; 0 0], [2 0; 0 1], [-1 0; -1 0],
 ]
+M, N = 2, 3
 
-f = matrix_pade_left(coeffs, 2, 3)   # left-hand form: Q(z)^-1 P(z)
-f(1//2)                              # evaluate at z = 1/2, exactly
+z = 1//2
+f = matrix_pade(coeffs, M, N, side = :left)   # left-hand form: Q(z)^-1 P(z)
+f(z)                                          # evaluate at z = 1/2, exactly
+matrix_pade(coeffs, M, N, z, side = :left)    # direct evaluation at z = 1/2
+```
+
+Both evaluations give the same exact rational matrix:
+
+```julia
+2×2 Matrix{Rational{BigInt}}:
+ 10//7    0
+ -1//21  4//3
+```
+
+The same form can be evaluated symbolically, which returns a matrix of
+rational functions in `z`:
+
+```julia
+using Symbolics
+@variables z
+simplify.(f(z))
+```
+
+```julia
+2×2 Matrix{Num}:
+            (-1 - z + z^2) / (-1 - z + 2(z^2) + z^3)                0
+ (z^5) / (-1 - z + 3(z^2) + 2(z^3) - 2(z^4) - (z^5))  1 / (1 - (z^2))
 ```
 
 ## API reference
