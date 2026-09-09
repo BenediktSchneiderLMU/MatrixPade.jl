@@ -127,11 +127,12 @@ f = matrix_pade_right(coeffs, 2, 3)
 
 # ...the left-hand form instead, evaluating Q(z)^-1 * P(z):
 g = matrix_pade_left(coeffs, 2, 3)
-g(1//2)                                  # evaluate at z = 1/2, exactly
+x = 1//2
+g(x)                                  # evaluate at z = 1/2, exactly
 
 # ...or the general entry point, and immediate evaluation:
 matrix_pade(coeffs, 2, 3; side=:left)
-matrix_pade(coeffs, 2, 3, 1//2; side=:left)
+matrix_pade(coeffs, 2, 3, x; side=:left)
 ```
 
 `f.P` and `f.Q` are the numerator and denominator coefficient lists, so
@@ -167,10 +168,11 @@ qcoeffs, Pcoeffs = mpta_coeffs(coeffs, 3, 2)   # q(z), P(z) for the (3/2) MPTA
 
 # ...or as a callable approximant:
 pa = mpta(coeffs, 3, 2)
+x = 1//2
 pa(1//2)                                        # evaluate at z = 1/2
 
 # ...or evaluate directly:
-mpta(coeffs, 3, 2, 1//2)
+mpta(coeffs, 3, 2, x)
 ```
 
 This is Example 4.4 of Gu (2004), and the package reproduces the published
