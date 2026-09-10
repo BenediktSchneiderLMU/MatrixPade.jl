@@ -1,14 +1,14 @@
 name = "MatrixPade"
 uuid = "0aeaf10a-2ae8-4a17-b942-a7bd9ca6f393"
-authors = ["Benedikt Schneider"]
 version = "0.2.0"
+authors = ["Benedikt Schneider"]
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [compat]
 LinearAlgebra = "1"
-Symbolics = "6"
+Symbolics = "6, 7"
 Test = "1"
 julia = "1.10"
 
